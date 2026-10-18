@@ -20,6 +20,7 @@ void transferencia(Lista *lista, const char *nome, int senha, double valor, cons
 conta *login(Lista *lista, const char *nome, int senha);
 void excluirConta(Lista *lista, const char *nome, int senha);
 void limpar();
+void liberarLista(Lista *lista);
 
 int main(){
     Lista lista;
@@ -128,7 +129,7 @@ int main(){
         }
     }
 
-    lista.inicio = NULL;
+    liberarLista(&lista);
 
     return 0;
 }
@@ -137,35 +138,38 @@ void cadastro(Lista *lista, const char *nome, int senha){
     conta *nova = (conta*)malloc(sizeof(conta));
     conta *verificacao = lista->inicio;
 
+    if(nova == NULL)return;
+
     while(verificacao != NULL && (strcmp(verificacao->nome, nome)) != 0){
         verificacao = verificacao->proximo;
     }if(verificacao != NULL){
+        free(nova);
         puts("Esse nome ja esta em uso");
     }else{
-        if(nova == NULL)return;
-
         strncpy(nova->nome, nome, sizeof(nova->nome) - 1);
         nova->nome[sizeof(nova->nome) - 1] = '\0';
 
         nova->senha = senha;
+        nova->saldo = 0;
         nova->proximo = lista->inicio;
         lista->inicio = nova;
     
         puts("Cadastro realizado com sucesso!");
-        nova->saldo = 0;
     }
 }
 
 void deposito(Lista *lista, const char *nome, int senha, double valor){
     conta *atual = lista->inicio;
 
-    while(atual != NULL && (strcmp(atual->nome, nome)) != 0 && atual->senha != senha){
+    while(atual != NULL && ((strcmp(atual->nome, nome)) != 0 || atual->senha != senha)){
         atual = atual->proximo;
     }if(atual == NULL || (strcmp(atual->nome, nome)) != 0 || atual->senha != senha){
         puts("Seu nome ou senha esta(ao) incorreto(s)");
     }else{
         if(valor > 50000){
             puts("Valor maximo de deposito excedido!");
+        }else if(valor <= 0){
+            puts("Nao e possivel depositar um valor negativo ou igual a zero!");
         }else{
             atual->saldo += valor;
             puts("Saldo depositado na conta!");
@@ -176,16 +180,22 @@ void deposito(Lista *lista, const char *nome, int senha, double valor){
 void saque(Lista *lista, const char *nome, int senha, double valor){
     conta *atual = lista->inicio;
 
-    while(atual != NULL && (strcmp(atual->nome, nome)) != 0 && atual->senha != senha){
+    while(atual != NULL && ((strcmp(atual->nome, nome)) != 0 || atual->senha != senha)){
         atual = atual->proximo;
     }if(atual == NULL || (strcmp(atual->nome, nome)) != 0 || atual->senha != senha){
         puts("Seu nome ou senha esta(ao) incorreto(s)");
     }else{
         if(valor > 30000){
             puts("Valor maximo de saque excedido!");
+        }else if(valor <= 0){
+            puts("Nao e possivel retirar um valor negativo ou igual a zero!");
         }else{
-            atual->saldo -= valor;
-            puts("Saque realizado!");
+            if(atual->saldo < valor){
+                puts("Nao e possivel retirar um valor alem do saldo disponivel!");
+            }else{
+                atual->saldo -= valor;
+                puts("Saque realizado!");
+            }
         }
     }
 }
@@ -194,7 +204,7 @@ void transferencia(Lista *lista, const char *nome, int senha, double valor, cons
     conta *atual = lista->inicio;
     conta *atualR = lista->inicio;
 
-    while(atual != NULL && (strcmp(atual->nome, nome)) != 0 && atual->senha != senha){
+    while(atual != NULL && ((strcmp(atual->nome, nome)) != 0 || atual->senha != senha)){
         atual = atual->proximo;
     }if(atual == NULL || (strcmp(atual->nome, nome)) != 0 || atual->senha != senha){
         puts("Seu nome ou senha esta(ao) incorreto(s)");
@@ -204,12 +214,22 @@ void transferencia(Lista *lista, const char *nome, int senha, double valor, cons
         }else{
             while(atualR != NULL && (strcmp(atualR->nome, nomeR)) != 0){
                 atualR = atualR->proximo;
-            }if(atualR == NULL){
+            }if(atualR == NULL || (strcmp(atualR->nome, nomeR)) != 0){
                 puts("Nome incorreto");
             }else{
-                atual->saldo -= valor;
-                atualR->saldo += valor;
-                puts("Transferencia realizada!");
+                if((strcmp(atual->nome, atualR->nome)) == 0){
+                    puts("Nao e possivel enviar um valor para si proprio");
+                }else{
+                    if(valor <= 0){
+                        puts("Nao e possivel transferir um valor negativo ou igual a zero!");
+                    }else if(atual->saldo < valor){
+                        puts("Nao e possivel transferir um valor alem do saldo disponivel!");
+                    }else{
+                        atual->saldo -= valor;
+                        atualR->saldo += valor;
+                        puts("Transferencia realizada!");
+                    }
+                }
             }
         }
     }
@@ -218,7 +238,7 @@ void transferencia(Lista *lista, const char *nome, int senha, double valor, cons
 conta *login(Lista *lista, const char *nome, int senha){
     conta *proximo = lista->inicio;
 
-    while(proximo != NULL && (strcmp(proximo->nome, nome)) != 0 && proximo->senha != senha){
+    while(proximo != NULL && ((strcmp(proximo->nome, nome)) != 0 || proximo->senha != senha)){
         proximo = proximo->proximo;
     }if(proximo == NULL || (strcmp(proximo->nome, nome)) != 0 || proximo->senha != senha){
         puts("Seu nome ou senha esta(ao) incorreto(s)");
@@ -237,9 +257,9 @@ void excluirConta(Lista *lista, const char *nome, int senha){
         contaExcluir = lista->inicio;
         lista->inicio = contaExcluir->proximo;
     }else{
-        while(inicio != NULL && inicio->proximo != NULL && (strcmp(inicio->proximo->nome, nome)) != 0 && inicio->proximo->senha != senha){
+        while(inicio != NULL && inicio->proximo != NULL && ((strcmp(inicio->proximo->nome, nome)) != 0 || inicio->proximo->senha != senha)){
             inicio = inicio->proximo;
-        }if(inicio != NULL && inicio->proximo != NULL){
+        }if(inicio != NULL && inicio->proximo != NULL && (strcmp(inicio->proximo->nome, nome)) == 0 && inicio->proximo->senha == senha){
             contaExcluir = inicio->proximo;
             inicio->proximo = contaExcluir->proximo;
         }else{
@@ -256,4 +276,16 @@ void excluirConta(Lista *lista, const char *nome, int senha){
 void limpar(){
     int c;
     while((c = getchar()) != '\n' && c != EOF);
+}
+
+void liberarLista(Lista *lista){
+    conta *atual = lista->inicio;
+
+    while(atual != NULL) {
+        conta *proximo = atual->proximo;
+        free(atual);
+        atual = proximo;
+    }
+
+    lista->inicio = NULL;
 }
